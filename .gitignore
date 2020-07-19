@@ -1,4 +1,4 @@
-#data folder
+#private data folder
 /data
 
 # Logs
@@ -72,6 +72,7 @@ typings/
 .yarn-integrity
 
 # dotenv environment variables file
+dbConfig.json
 .env
 .env.test
 
@@ -108,3 +109,5 @@ dist
 
 # other
 .DS_Store
+__private_notes.md
+nodemon.json

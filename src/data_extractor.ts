@@ -1,6 +1,7 @@
 import { resolve } from "path";
 import { readdirSync, writeFileSync, appendFile, createReadStream } from "fs";
 import csv from "csv-parser";
+import { camelCase } from "change-case";
 
 const CATALOGS = {
   ENTIDADES: "entidades",
@@ -13,7 +14,18 @@ const CATALOGS = {
   SINO: "siNo",
   TIPOPACIENTE: "tipoPaciente",
 };
-import { camelCase } from "change-case";
+
+type catalogs = {
+  municipios: any;
+  nacionalidad: any;
+  origen: any;
+  resultado: any;
+  sector: any;
+  sexo: any;
+  siNo: any;
+  tipoPaciente: any;
+  entidades: any;
+};
 
 const titleCase = (txt: string) => {
   let text = txt;
@@ -50,7 +62,7 @@ const titleCase = (txt: string) => {
   return text;
 };
 
-export class DataExporter {
+export class DataExtractor {
   private covidData: any[];
   private first: boolean;
   private jsonFile: string;
@@ -59,10 +71,13 @@ export class DataExporter {
   private processedRows: number;
   private secondaryBuffer: string;
   private switchBuffer: boolean;
+  private catalogs: catalogs;
 
   constructor(
-    private dbFile: string = "test.csv",
-    private catalogsFileDir: string = "catalogs"
+    private dbFileDir: string = "../data/dbcsv",
+    private processedFileDir: string = "../data/processed/",
+    private catalogsFileDir: string = "../data/raw/catalogs",
+    private descriptorsFileDir: string = "../data/raw/descriptors"
   ) {
     const getJsonFileName = () => {
       const now = new Date();
@@ -73,14 +88,16 @@ export class DataExporter {
       const timeStamp = `${now.getFullYear()}-${month}-${day}_${hour}`;
       return resolve(
         __dirname,
-        "../data/processed",
+        this.processedFileDir,
         `mexico_${timeStamp}.json`
       );
     };
 
+    this.dbFileDir = resolve(__dirname, dbFileDir);
+    this.processedFileDir = resolve(__dirname, processedFileDir);
     this.catalogsFileDir = resolve(__dirname, catalogsFileDir);
+    this.descriptorsFileDir = resolve(__dirname, descriptorsFileDir);
     this.covidData = [];
-    this.dbFile = dbFile;
     this.first = true;
     this.jsonFile = getJsonFileName();
     this.lineCount = 0;
@@ -88,6 +105,7 @@ export class DataExporter {
     this.processedRows = 0;
     this.secondaryBuffer = "";
     this.switchBuffer = false;
+    this.catalogs = require(resolve(this.processedFileDir, "catalogs.json"));
   }
 
   private resetFlags = () => {
@@ -98,13 +116,13 @@ export class DataExporter {
   };
 
   private appendToJsonFile = (end: boolean = false) => {
+    console.log(`Writting ${this.processedRows} to JSON file`);
     if (this.switchBuffer) {
       const data = this.primaryBuffer;
       this.switchBuffer = !this.switchBuffer;
       appendFile(this.jsonFile, data, (err) => {
         if (err) throw err;
         this.primaryBuffer = "";
-        console.log(`Wrote ${this.processedRows} to JSON file`);
       });
     } else {
       const data = this.secondaryBuffer;
@@ -112,27 +130,26 @@ export class DataExporter {
       appendFile(this.jsonFile, data, (err) => {
         if (err) throw err;
         this.secondaryBuffer = "";
-        console.log(`Wrote ${this.processedRows} to JSON file`);
       });
     }
     if (end) {
       appendFile(this.jsonFile, "\n]\n", (err) => {
         if (err) throw err;
-        console.log(`Wrote ${this.processedRows} to JSON file`);
+
         this.resetFlags();
       });
     }
   };
 
-  processDbCsv = (filename?: string) => {
+  processDbCsv = (filename: string, append: boolean = true) => {
     writeFileSync(this.jsonFile, "", "utf8");
-    const fileN = filename || this.dbFile;
+    const fileN = resolve(this.dbFileDir, filename);
     const dbFile = resolve(__dirname, fileN);
     createReadStream(dbFile)
       .pipe(csv())
       .on("data", (row) => {
-        this.covidData.push(row);
-        if (this.lineCount % 50000 === 0) {
+        const mappedRow = this.mapCaseData(row);
+        if (this.lineCount % 100000 === 0) {
           console.log(`working... ${this.lineCount++}/750000+`);
         }
         if (this.processedRows++ % 100000) {
@@ -140,10 +157,10 @@ export class DataExporter {
         }
         if (this.switchBuffer) {
           this.primaryBuffer =
-            `${this.first ? "[\n" : ",\n"}` + JSON.stringify(row);
+            `${this.first ? "[\n" : ",\n"}` + JSON.stringify(mappedRow);
         } else {
           this.secondaryBuffer =
-            `${this.first ? "[\n" : ",\n"}` + JSON.stringify(row);
+            `${this.first ? "[\n" : ",\n"}` + JSON.stringify(mappedRow);
         }
         this.first = false;
       })
@@ -228,19 +245,98 @@ export class DataExporter {
         const stateName = catalogs.entidades[stateCode].entidadFederativa;
         catalogs.municipios[id].entidadFederativa = stateName;
       }
-
-      const jsonCatalogFile = resolve(
-        __dirname,
-        "processedFiles",
-        "catalogs.json"
-      );
-
+      const jsonCatalogFile = resolve(this.processedFileDir, "catalogs.json");
       writeFileSync(jsonCatalogFile, JSON.stringify(catalogs), "utf8");
     });
   };
+
+  private mapCaseData = (caseData: any) => {
+    const mappedData: any = {};
+    const dic = this.catalogs;
+
+    for (let prop in caseData) {
+      const key = parseInt(caseData[prop]).toString();
+      const newKey = camelCase(prop);
+      switch (prop) {
+        case "ID_REGISTRO":
+          mappedData.id = caseData[prop];
+          break;
+        case "FECHA_ACTUALIZACION":
+        case "FECHA_SINTOMAS":
+        case "FECHA_DEF":
+        case "FECHA_INGRESO":
+          const dateVal = isNaN(Date.parse(caseData[prop]))
+            ? null
+            : new Date(caseData[prop]);
+          mappedData[newKey] = dateVal;
+          break;
+        case "ORIGEN":
+          mappedData[newKey] = dic.origen[key].descripcion;
+          break;
+        case "SECTOR":
+          mappedData[newKey] = dic.sector[key].descripcion;
+          break;
+        case "ENTIDAD_UM":
+        case "ENTIDAD_NAC":
+        case "ENTIDAD_RES":
+          mappedData[newKey] = dic.entidades[key].entidadFederativa;
+          //mappedData[`${newKey}Abrv`] = dic.entidades[key].abreviatura;
+          break;
+        case "SEXO":
+          mappedData[newKey] = dic.sexo[key].descripcion;
+          break;
+        case "MUNICIPIO_RES":
+          mappedData[newKey] = dic.municipios[key].municipio;
+          break;
+        case "TIPO_PACIENTE":
+          mappedData[newKey] = dic.tipoPaciente[key].descripcion;
+          break;
+        case "INTUBADO":
+        case "NEUMONIA":
+        case "EMBARAZO":
+        case "HABLA_LENGUA_INDIG":
+        case "DIABETES":
+        case "EPOC":
+        case "ASMA":
+        case "INMUSUPR":
+        case "HIPERTENSION":
+        case "OTRA_COM":
+        case "CARDIOVASCULAR":
+        case "OBESIDAD":
+        case "RENAL_CRONICA":
+        case "TABAQUISMO":
+        case "OTRO_CASO":
+        case "MIGRANTE":
+        case "UCI":
+          mappedData[newKey] = dic.siNo[key].descripcion;
+          break;
+        case "EDAD":
+          mappedData[newKey] = parseInt(key);
+          break;
+        case "NACIONALIDAD":
+          mappedData[newKey] = dic.nacionalidad[key].descripcion;
+          break;
+        case "RESULTADO":
+          mappedData[newKey] = dic.resultado[key].descripcion;
+          break;
+        case "PAIS_NACIONALIDAD":
+        case "PAIS_ORIGEN":
+          const text = caseData[prop];
+          if (text === "97" || text === "98" || text === "99") {
+            mappedData[newKey] = dic.siNo[text].descripcion;
+          } else {
+            mappedData[newKey] = text;
+          }
+          break;
+        default:
+          mappedData[newKey] = parseInt(caseData[prop]).toString();
+      }
+    }
+    return mappedData;
+  };
 }
 
-const dataExporter = new DataExporter();
+const dataExporter = new DataExtractor();
 //"200714COVID19MEXICO.csv"
-dataExporter.processDbCsv("../data/dbcsv/test.csv");
+//dataExporter.processDbCsv("test.csv");
 //dataExporter.processDbCsv("200714COVID19MEXICO.csv");
