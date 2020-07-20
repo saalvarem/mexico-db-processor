@@ -110,4 +110,6 @@ dist
 # other
 .DS_Store
 __private_notes.md
-nodemon.json
+./nodemon.json
+serviceAccountKey.json
+dbConfig.json

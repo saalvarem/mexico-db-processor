@@ -1,54 +1,104 @@
-import { DataBatcher } from "./src/data_batcher";
-import { DataExtractor } from "./src/data_extractor";
-import { resolve as resolvePath, sep } from "path";
-import { existsSync } from "fs";
+import { sep } from "path";
+import { existsSync, createWriteStream, unlinkSync } from "fs";
 import { JobScheduler } from "./src/job_scheduler";
-import { DataDownloader } from "./src/data_downloader";
+import { DataDownloader, progressState } from "./src/data_downloader";
+import {
+  EventManager as em,
+  getDbFilename,
+  getZipFileLocation,
+  getCsvFileLocation,
+} from "./src/utils";
+import { filterCsvFile } from "./src/csv_filter";
+import moment from "moment";
+import unzipper from "unzipper";
 
-const test = () => {
-  const dataScheduler = new JobScheduler();
+const scheduler = new JobScheduler();
 
-  //const govDbFileChecker = dataScheduler.rawDataDownloader("0 */8 * * *");
-  const govDbFileChecker = dataScheduler.rawDataDownloader("*/2 * * * * *");
-  DataDownloader.events.on("error", (err) => {
-    console.error(err);
-    govDbFileChecker?.stop();
-  });
-  DataDownloader.events.on("downloadProgress", (url, state) => {
-    console.log(`"${url}"  .......... ${(state.percent * 100).toFixed(0)}%`);
-  });
-  //govDbFileChecker.start();
-  //govDbFileChecker.fireOnTick();
-
-  // check how to know when the last time a firebase collection was updated?
-  // keep track in a management collection "lastSuccess"
-  DataDownloader.events.on("complete", (url, fileLocation) => {
-    console.log(`Downloaded "${fileLocation.split(sep).pop()}" from ${url}`);
-    // check that the new file exists in the download folder
-    // open zip, process new file, only keep records that are newer than last updated date
-  });
-
-  // listen for event from file processor that only new CSV records are left
-  // process those records into json (keeping num values)
-
-  // listen for event that 'newRecordsAvailableForUpload'
-
-  // batch changes, update firebase
-  // update firebase records "last success"
-
-  // listen for event that 'newRecordsUploadedToFirebase'
-
-  // listen for some error event -> email/text me!
-
-  //figure out how to run this with .env in just node and prod
-
-  // fire out how to have this run on google cloud
-
-  // set to work on API
-
-  setTimeout(() => {
-    govDbFileChecker.stop();
-  }, 6 * 1000);
+const downloadDbFile = () => {
+  const fileUrl = process.env.MEXICO_DB_URL || "";
+  const fileDestination = getZipFileLocation();
+  DataDownloader.download(fileUrl, fileDestination);
 };
 
-test();
+const cronTime = "0 0 */12 * * *";
+
+const periodicallyDownloadDB = scheduler.scheduleJob(
+  cronTime,
+  "dbFileDownload",
+  downloadDbFile
+);
+
+em.events.on(em.eventDic.ERROR, (origin, err) => {
+  console.error(`Error in ${origin}`, err);
+  periodicallyDownloadDB?.stop();
+});
+
+em.events.on(em.eventDic.DONWLOAD_PROGRESS, (url, state: progressState) => {
+  //console.log(`"${url}"  .......... ${(state.percent * 100).toFixed(0)}%`);
+});
+
+em.events.on(em.eventDic.DONWLOAD_COMPLETE, async (url, fileLocation) => {
+  //console.log(`[ ${moment().format("MMMM Do YYYY, h:mm:ss a")} ] Downloaded "${fileLocation.split(sep).pop()}" from ${url}`);
+  await getCsvFileFromZip(fileLocation);
+});
+
+em.events.on(em.eventDic.DB_FILE_EXTRACTED, (csvFileLocation) => {
+  const zipFileLocation = getZipFileLocation();
+  if (existsSync(zipFileLocation)) {
+    unlinkSync(zipFileLocation);
+  }
+  filterCsvFile(csvFileLocation);
+});
+
+em.events.on(em.eventDic.NEW_RECORDS_AVAILABLE, (filteredJsonFile) => {
+  console.log(`\nWe have JSON file with new records: ${filteredJsonFile}`);
+});
+
+const getCsvFileFromZip = async (zipFileLocation: string) => {
+  if (existsSync(zipFileLocation)) {
+    const directory = await unzipper.Open.file(zipFileLocation);
+    return new Promise((resolve) => {
+      let foundFile = false;
+      const expectedFile = getDbFilename(new Date());
+      const outputFile = getCsvFileLocation();
+      for (let file of directory.files) {
+        const filename = file.path;
+        if (filename.toLowerCase() === expectedFile.toLowerCase()) {
+          file
+            .stream()
+            .pipe(createWriteStream(outputFile))
+            .on("error", (err) => {
+              em.events.emit(
+                em.eventDic.ERROR,
+                "getCsvFileFromZip",
+                new Error(`Error unzipping DB archive.`)
+              );
+            })
+            .on("finish", () => {
+              em.events.emit(em.eventDic.DB_FILE_EXTRACTED, outputFile);
+              resolve();
+            });
+          foundFile = true;
+          break;
+        }
+      }
+      if (!foundFile) {
+        em.events.emit(
+          em.eventDic.ERROR,
+          "getCsvFileFromZip",
+          new Error(`"${expectedFile}" not in ZIP archive.`)
+        );
+      }
+    });
+  } else {
+    em.events.emit(
+      em.eventDic.ERROR,
+      "getCsvFileFromZip",
+      new Error(`Cannot unzip file. Zip file does not exist.`)
+    );
+  }
+};
+
+console.log(`Job scheduled:   Periodically download DB file [${cronTime}]\n`);
+periodicallyDownloadDB.start();
+periodicallyDownloadDB.fireOnTick();

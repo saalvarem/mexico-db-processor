@@ -1,9 +1,76 @@
 import { resolve as resolvePath } from "path";
 import lineByLine from "n-readlines";
+import { EventManager as em } from "./utils";
+
+export const batchFile = async (
+  csvFileLocation: string,
+  batchFunction: any,
+  maxBatches: number = 1,
+  batchSize: number = 1
+) => {
+  console.log("in batchFile");
+  if (maxBatches < 1) {
+    maxBatches = 0;
+  }
+  const liner = new lineByLine(csvFileLocation);
+  let currentBuffer = liner.next();
+  let buffStr = currentBuffer.toString();
+  let currLine: string = "";
+  if (buffStr.charAt(buffStr.length - 1) === ",") {
+    currLine = buffStr.substring(0, buffStr.length - 1);
+  }
+
+  let batchCount: number = 0;
+  let currBatch: any[] = [];
+  let totalRecords: number = 0;
+
+  const advanceLine = () => {
+    currentBuffer = liner.next();
+    buffStr = currentBuffer.toString();
+    if (buffStr.charAt(buffStr.length - 1) === ",") {
+      currLine = buffStr.substring(0, buffStr.length - 1);
+    }
+  };
+
+  while (batchCount < maxBatches && currentBuffer !== false) {
+    console.log(currLine);
+    if (currLine === "[" || currLine === "]" || currLine === "") {
+      advanceLine();
+      continue;
+    }
+
+    try {
+      const caseInfo = JSON.parse(currLine);
+      currBatch.push(caseInfo);
+    } catch (err) {
+      advanceLine();
+      continue;
+    }
+
+    if (currBatch.length >= batchSize) {
+      await batchFunction(currBatch).then(() => {
+        batchCount++;
+        totalRecords += currBatch.length;
+        currBatch = [];
+      });
+    }
+
+    advanceLine();
+  }
+
+  await batchFunction(currBatch).then(() => {
+    console.log("Done procressing file");
+    currBatch = [];
+
+    console.log(
+      `\nDone! Processed ${totalRecords} records in ${batchCount} batches of ${batchSize}\n`
+    );
+  });
+};
 
 export class DataBatcher {
   async processBatch(currBatch: any) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       if (currBatch.length === 0) {
         resolve();
       }
@@ -88,13 +155,3 @@ export class DataBatcher {
       );
   }
 }
-
-const dbFile = resolvePath(
-  __dirname,
-  "data/processed",
-  "mexico_2020-07-07_21.json"
-);
-
-const dataBatcher = new DataBatcher();
-//dataBatcher.batchFile(dbFile, 20, 1);
-//dataBatcher.batchFile(dbFile, 20, 100000);

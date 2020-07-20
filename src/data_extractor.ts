@@ -141,9 +141,9 @@ export class DataExtractor {
     }
   };
 
-  processDbCsv = (filename: string, append: boolean = true) => {
+  processDbCsv = (csvFileName: string, append: boolean = true) => {
     writeFileSync(this.jsonFile, "", "utf8");
-    const fileN = resolve(this.dbFileDir, filename);
+    const fileN = resolve(this.dbFileDir, csvFileName);
     const dbFile = resolve(__dirname, fileN);
     createReadStream(dbFile)
       .pipe(csv())
@@ -166,7 +166,7 @@ export class DataExtractor {
       })
       .on("end", () => {
         this.appendToJsonFile(true);
-        console.log(this.covidData.length);
+        console.log(this.covidData);
       })
       .on("error", (err) => {
         throw err;
@@ -335,8 +335,3 @@ export class DataExtractor {
     return mappedData;
   };
 }
-
-const dataExporter = new DataExtractor();
-//"200714COVID19MEXICO.csv"
-//dataExporter.processDbCsv("test.csv");
-//dataExporter.processDbCsv("200714COVID19MEXICO.csv");
