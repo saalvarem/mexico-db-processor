@@ -2,6 +2,11 @@
 /src/data/downloads
 /src/data/processed
 
+# Cloud services config
+app.yaml
+app.yml
+.gcloudignore
+
 # Logs
 logs
 *.log
