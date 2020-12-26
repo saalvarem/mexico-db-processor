@@ -1,6 +1,5 @@
 import { resolve as resolvePath } from "path";
 import lineByLine from "n-readlines";
-import { EventManager as em } from "./utils";
 
 export const batchFile = async (
   csvFileLocation: string,

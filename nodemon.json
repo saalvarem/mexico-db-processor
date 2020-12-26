@@ -1,13 +1,19 @@
 {
   "restartable": "rs",
-  "ignore": [".git", "node_modules/**/node_modules"],
+  "ignore": [
+    ".git",
+    "node_modules/**/node_modules",
+    "./src/data/**/*"
+  ],
   "verbose": true,
   "execMap": {
     "ts": "ts-node"
   },
-  "watch": ["src/", "scripts/*.ts"],
-  "env": {
-    "NODE_ENV": "development"
-  },
-  "ext": "js,json,ts"
+  "watch": [
+    "./src/classes/**/*",
+    "./src/utilities/**/*",
+    "./src/index.ts"
+  ],
+  "ext": "js,json,ts",
+  "exec": "ts-node ./src/index.ts"
 }

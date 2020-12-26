@@ -1,4 +1,4 @@
-import { getCatalog } from "./utils";
+import { resolve as resolvePath } from "path";
 import { camelCase } from "change-case";
 
 const CATALOGS = {
@@ -28,9 +28,13 @@ export type catalogs = {
 export const mapCaseData = (caseData: any, translate: boolean = true) => {
   const mappedData: any = {};
 
-  const dic = getCatalog();
+  const dic = require(resolvePath(
+    __dirname,
+    process.env.CATALOGS_DIR || "./data/catalogs",
+    "catalogs.json"
+  ));
 
-  for (let prop in caseData) {
+  for (const prop in caseData) {
     const key = parseInt(caseData[prop]).toString();
     const newKey = camelCase(prop);
     switch (prop) {
@@ -62,7 +66,7 @@ export const mapCaseData = (caseData: any, translate: boolean = true) => {
         mappedData[newKey] = translate
           ? dic.entidades[key].entidadFederativa
           : parseInt(key);
-        //mappedData[`${newKey}Abrv`] = translate? dic.entidades[key].abreviatura : parseInt(key);
+        // mappedData[`${newKey}Abrv`] = translate? dic.entidades[key].abreviatura : parseInt(key);
         break;
       case "SEXO":
         mappedData[newKey] = translate

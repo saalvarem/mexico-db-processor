@@ -209,7 +209,7 @@ export class DataExtractor {
             };
             return formattedRow;
           default:
-            throw `no catalog for "${catalogName}"`;
+            throw new Error(`no catalog for "${catalogName}"`);
         }
       };
 
@@ -240,7 +240,7 @@ export class DataExtractor {
       if (catalogs[""]) {
         delete catalogs[""];
       }
-      for (let id in catalogs.municipios) {
+      for (const id in catalogs.municipios) {
         const stateCode = catalogs.municipios[id].entidadFederativa;
         const stateName = catalogs.entidades[stateCode].entidadFederativa;
         catalogs.municipios[id].entidadFederativa = stateName;
@@ -254,7 +254,7 @@ export class DataExtractor {
     const mappedData: any = {};
     const dic = this.catalogs;
 
-    for (let prop in caseData) {
+    for (const prop in caseData) {
       const key = parseInt(caseData[prop]).toString();
       const newKey = camelCase(prop);
       switch (prop) {
@@ -280,7 +280,7 @@ export class DataExtractor {
         case "ENTIDAD_NAC":
         case "ENTIDAD_RES":
           mappedData[newKey] = dic.entidades[key].entidadFederativa;
-          //mappedData[`${newKey}Abrv`] = dic.entidades[key].abreviatura;
+          // mappedData[`${newKey}Abrv`] = dic.entidades[key].abreviatura;
           break;
         case "SEXO":
           mappedData[newKey] = dic.sexo[key].descripcion;

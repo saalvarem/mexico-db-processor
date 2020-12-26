@@ -1,5 +1,6 @@
 #private data folder
-/data
+/src/data/downloads
+/src/data/processed
 
 # Logs
 logs
