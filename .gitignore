@@ -1,7 +1,10 @@
 # App
+/.vscode
 /dist
 /data/downloads
 /data/processed
+.gcloudignore
+app.yaml
 
 # Logs
 logs
