@@ -3,10 +3,9 @@ import request from "request";
 import { URL } from "url";
 import { config as loadEnvVariables } from "dotenv";
 import { createWriteStream, existsSync, unlinkSync } from "fs";
-import { ensureDirExistsSync } from "../utilities/utils";
+import { ensureDirExistsSync, srcDir } from "../utilities/utils";
 import { resolve as resolvePath } from "path";
 const progress = require("request-progress");
-
 loadEnvVariables();
 
 type progressOptions = {
@@ -31,7 +30,7 @@ type progressState = {
 export class DataDownloader {
   private static singleton: DataDownloader;
   private downloadsDir: string =
-    process.env.DONWLOADS_DIR || "./data/downloads";
+    process.env.DONWLOADS_DIR || "../data/downloads";
   private temporaryFiles: string[] = [];
   private zipfileName: string =
     process.env.DB_ZIP_FILENAME || "datos_abiertos_covid19.zip";
@@ -55,22 +54,14 @@ export class DataDownloader {
         );
       }
       const fileDestination = resolvePath(
-        __dirname,
+        srcDir(),
         this.downloadsDir,
         this.zipfileName
       );
-      console.log(
-        `[ ${moment().format(
-          "LLLL"
-        )} ] DB ZIP file download started: ${url} --> ${fileDestination}`
-      );
-
       progress(request(url), {} as progressOptions)
         .on("progress", (state: progressState) => {
           console.log(
-            `[ ${moment().format(
-              "LLLL"
-            )} ] DB ZIP file download progress: "${url}"  .......... ${(
+            `DB ZIP file download progress: "${url}"  .......... ${(
               state.percent * 100
             ).toFixed(0)}%`
           );
@@ -89,9 +80,7 @@ export class DataDownloader {
   deleteTempFiles(): void {
     for (const tempFile of this.temporaryFiles) {
       if (existsSync(tempFile)) {
-        console.log(
-          `[${moment().format("LLLL")}] Deleting temp file: ${tempFile}`
-        );
+        console.log(`Deleting temp file: ${tempFile}`);
         unlinkSync(tempFile);
       }
     }

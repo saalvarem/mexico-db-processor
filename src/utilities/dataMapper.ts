@@ -1,5 +1,10 @@
 import { resolve as resolvePath } from "path";
 import { camelCase } from "change-case";
+import { srcDir } from "./utils";
+import { Entidad } from "../models/types";
+import { config as loadEnvVariables } from "dotenv";
+import LineByLine from "n-readlines";
+loadEnvVariables();
 
 const CATALOGS = {
   ENTIDADES: "entidades",
@@ -25,12 +30,15 @@ export type catalogs = {
   entidades: any;
 };
 
-export const mapCaseData = (caseData: any, translate: boolean = true) => {
+export const mapCaseDataCsvToJson = (
+  caseData: any,
+  translate: boolean = true
+) => {
   const mappedData: any = {};
 
   const dic = require(resolvePath(
-    __dirname,
-    process.env.CATALOGS_DIR || "./data/catalogs",
+    srcDir(),
+    process.env.CATALOGS_DIR || "../data/catalogs",
     "catalogs.json"
   ));
 
@@ -131,4 +139,120 @@ export const mapCaseData = (caseData: any, translate: boolean = true) => {
     }
   }
   return mappedData;
+};
+
+export const mapCaseDataByLocation = (
+  csvFile: string
+): Promise<{
+  [entidad: string]: Entidad;
+}> => {
+  return new Promise((resolve, reject) => {
+    const quotes = /\"/g;
+    const catalog = require(resolvePath(
+      srcDir(),
+      process.env.CATALOGS_DIR || "../data/catalogs",
+      "catalogs.json"
+    ));
+    const entidades: { [entidad: string]: Entidad } = {};
+
+    let syncRowCount = 0;
+    const liner = new LineByLine(csvFile);
+    let currentBuffer = liner.next();
+    let currLine: string = currentBuffer.toString().replace("\r", "");
+    let firstLine = true;
+    const advanceLine = (liner: LineByLine) => {
+      currentBuffer = liner.next();
+      currLine = currentBuffer.toString().replace("\r", "");
+    };
+    let colNames: string[] = [];
+    const idx: { [colName: string]: number } = {};
+
+    while (currentBuffer !== false) {
+      if (firstLine) {
+        colNames = currLine.split(",");
+        for (const i in colNames) {
+          idx[colNames[i].replace(quotes, "")] = parseInt(i);
+        }
+        firstLine = false;
+        advanceLine(liner);
+      }
+
+      syncRowCount++;
+      if (syncRowCount % 500000 === 0) {
+        console.log(
+          `#${syncRowCount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`
+        );
+      }
+
+      try {
+        const rVal: string[] = currLine
+          .split(",")
+          .map((val) => val.replace(quotes, ""));
+        const entityId: string = parseInt(rVal[idx.ENTIDAD_UM]).toString();
+        const enterDate: string = rVal[idx.FECHA_INGRESO];
+        const currEnt: Entidad = entidades[entityId]
+          ? entidades[entityId]
+          : {
+              entityId, // "2"
+              name: catalog.entidades[entityId].entidadFederativa, // "Baja California";
+              code: catalog.entidades[entityId].abreviatura, // "BC";
+              positive: [{ date: enterDate, cases: 0 }],
+              negative: [{ date: enterDate, cases: 0 }],
+              dead: [{ date: enterDate, cases: 0 }],
+            };
+        if (rVal[idx.RESULTADO] === "1") {
+          const indexOfCase = currEnt.positive.findIndex(
+            (c) => c.date === enterDate
+          );
+          if (indexOfCase >= 0) {
+            currEnt.positive[indexOfCase].cases++;
+          } else {
+            currEnt.positive.push({ date: enterDate, cases: 1 });
+          }
+        } else if (rVal[idx.RESULTADO] === "2") {
+          const indexOfCase = currEnt.negative.findIndex(
+            (c) => c.date === enterDate
+          );
+          if (indexOfCase >= 0) {
+            currEnt.negative[indexOfCase].cases++;
+          } else {
+            currEnt.negative.push({ date: enterDate, cases: 1 });
+          }
+        }
+        if (rVal[idx.FECHA_DEF] !== "9999-99-99") {
+          const indexOfCase = currEnt.dead.findIndex(
+            (c) => c.date === enterDate
+          );
+          if (indexOfCase >= 0) {
+            currEnt.dead[indexOfCase].cases++;
+          } else {
+            currEnt.dead.push({ date: enterDate, cases: 1 });
+          }
+        }
+        entidades[entityId] = currEnt;
+      } catch (err) {
+        console.log(`ERROR in sync row ${syncRowCount}`);
+        console.error(err);
+        reject(err);
+      }
+
+      advanceLine(liner);
+    }
+
+    console.log(
+      `#${syncRowCount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`
+    );
+
+    for (const id in entidades) {
+      entidades[id].positive
+        .sort((a, b) => (a.date < b.date ? -1 : 1))
+        .map((c) => c.cases);
+      entidades[id].negative
+        .sort((a, b) => (a.date < b.date ? -1 : 1))
+        .map((c) => c.cases);
+      entidades[id].dead.sort((a, b) => (a.date < b.date ? -1 : 1));
+    }
+
+    resolve(entidades);
+  });
 };

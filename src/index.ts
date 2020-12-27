@@ -1,46 +1,38 @@
-import FileUploader from "./classes/fileUploader";
-import MexicoDbProcessor from "./classes/mexicoDbProcessor";
+import express from "express";
+import moment from "moment";
 import { JobScheduler } from "./classes/jobScheduler";
 import { config as loadEnvVariables } from "dotenv";
-import { DataDownloader } from "./classes/dataDownloader";
-import moment from "moment";
-
+import { processDbAndUpdateFiles } from "./utilities/dbUpdater";
 loadEnvVariables();
 
 const scheduler = new JobScheduler();
 const cronTime = process.env.CRON_TIME || "0 0 */8 * * *";
+let lastUpdate: string = "Unstarted";
+let lastStatus: { [step: string]: string } = {};
 
-const processDbAndUpdateJson = async () => {
-  const dataDownloader = new DataDownloader();
-  const dbProcessor = new MexicoDbProcessor();
-  const jsonFileUpdater = new FileUploader();
-  await dataDownloader
-    .downloadDbZipFile()
-    .then((downloadedZipFile) =>
-      dbProcessor.getCsvFileFromZip(downloadedZipFile)
-    )
-    .then((csvDbFile) => dbProcessor.mapCsvFileToJson(csvDbFile))
-    .then((jsonFile) => {
-      jsonFileUpdater; // upload file, update database
-    })
-    .catch((err) => {
-      console.error(`[${moment().format("LLLL")}] ERROR`, err);
-      periodicallyDownloadDB?.stop();
-    })
-    .finally(() => {
-      dataDownloader.deleteTempFiles();
-      dbProcessor.deleteTempFiles();
-    });
-};
-
-processDbAndUpdateJson();
-
-const periodicallyDownloadDB = scheduler.scheduleJob(
+const cronJob = scheduler.scheduleJob(
   cronTime,
-  "Download a copy of national database (ZIP), extract and process CSV into JSON, then upload processed file to repository.",
-  processDbAndUpdateJson
+  "Update and process Mexico national database",
+  async () => {
+    lastStatus = await processDbAndUpdateFiles(cronJob)
+      .then((statusObj) => {
+        console.log(statusObj);
+        lastUpdate = moment().format("LLLL");
+        return statusObj;
+      })
+      .catch((err) => {
+        return { error: JSON.stringify(err) };
+      });
+  }
 );
 
-// console.log(`Job scheduled:   Periodically download DB file [${cronTime}]\n`);
-// periodicallyDownloadDB.start();
-// periodicallyDownloadDB.fireOnTick();
+cronJob.start();
+cronJob.fireOnTick();
+const app = express();
+app.use(express.static("public"));
+app.get("/", (req, res) => {
+  res.json({ lastUpdate, lastStatus });
+});
+app.listen(process.env.PORT || 8080, () => {
+  console.log(`Serving public files. Checking for updates: ${cronTime}`);
+});

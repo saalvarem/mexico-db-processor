@@ -1,5 +1,5 @@
 import csv from "csv-parser";
-import moment from "moment";
+import moment from "moment-timezone";
 import unzipper from "unzipper";
 import {
   appendFile,
@@ -9,20 +9,23 @@ import {
   unlinkSync,
   writeFileSync,
 } from "fs";
+import {
+  mapCaseDataByLocation,
+  mapCaseDataCsvToJson,
+} from "../utilities/dataMapper";
 import { config as loadEnvVariables } from "dotenv";
+import { ensureDirExistsSync, srcDir, timeDiffWith } from "../utilities/utils";
 import { getDbStats } from "../utilities/databaseConnector";
-import { mapCaseData } from "../utilities/dataMapper";
 import { resolve as resolvePath, sep } from "path";
 loadEnvVariables();
 
 export default class MexicoDbProcessor {
   private static singleton: MexicoDbProcessor;
   private temporaryFiles: string[] = [];
-
   private downloadsDir: string =
-    process.env.DONWLOADS_DIR || "./data/downloads";
+    process.env.DONWLOADS_DIR || "../data/downloads";
   private processedDir: string =
-    process.env.PROCESSED_DIR || "./data/processed";
+    process.env.PROCESSED_DIR || "../data/processed";
 
   constructor() {
     if (MexicoDbProcessor.singleton) {
@@ -56,7 +59,7 @@ export default class MexicoDbProcessor {
             break;
           }
           const outputFile = resolvePath(
-            __dirname,
+            srcDir(),
             this.downloadsDir,
             expectedFiles[f]
           );
@@ -90,12 +93,12 @@ export default class MexicoDbProcessor {
     });
   }
 
-  async mapCsvFileToJson(csvFile: string): Promise<string> {
+  async convertDbToJson(csvFile: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
       const dbStats = await getDbStats();
       const filterDate: Date = dbStats.updatedAt;
       const outputFile = resolvePath(
-        __dirname,
+        srcDir(),
         this.processedDir,
         csvFile
           .split(sep)
@@ -146,12 +149,14 @@ export default class MexicoDbProcessor {
       createReadStream(csvFile)
         .pipe(csv())
         .on("data", (row) => {
-          const mappedRow = mapCaseData(row, true);
+          const mappedRow = mapCaseDataCsvToJson(row, true);
           const rowDate = new Date(mappedRow.fechaActualizacion);
 
-          if (processedRows % 30000 === 0) {
+          if (processedRows % 500000 === 0) {
             console.log(
-              processedRows.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+              `#${processedRows
+                .toString()
+                .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`
             );
           }
 
@@ -168,9 +173,9 @@ export default class MexicoDbProcessor {
           }
           first = false;
 
-          if (processedRows > 0 && processedRows % 100000 === 0) {
+          if (processedRows > 0 && processedRows % 500000 === 0) {
             console.log(
-              `Writing #${processedRows
+              `#${processedRows
                 .toString()
                 .replace(/\B(?=(\d{3})+(?!\d))/g, ",")} to JSON`
             );
@@ -180,7 +185,7 @@ export default class MexicoDbProcessor {
         })
         .on("end", () => {
           console.log(
-            `Writing #${processedRows
+            `#${processedRows
               .toString()
               .replace(/\B(?=(\d{3})+(?!\d))/g, ",")} to JSON`
           );
@@ -192,12 +197,41 @@ export default class MexicoDbProcessor {
     });
   }
 
+  async groupTotalsByLocation(csvFile: string): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      const startTime = moment();
+      const entidades = await mapCaseDataByLocation(csvFile);
+      const elapsedTime = timeDiffWith(startTime);
+      const totalsByLocFile = resolvePath(
+        srcDir(),
+        this.processedDir,
+        "mx-totals-by-location.json"
+      );
+      this.temporaryFiles.push(totalsByLocFile);
+      const data = Object.assign(
+        {
+          updatedAt: moment()
+            .tz("America/New_York")
+            .format("YYYY-MM-DD"),
+        },
+        entidades
+      );
+      try {
+        ensureDirExistsSync(this.processedDir);
+        writeFileSync(totalsByLocFile, JSON.stringify(data));
+      } catch (err) {
+        reject(err);
+        return;
+      }
+
+      resolve(totalsByLocFile);
+    });
+  }
+
   deleteTempFiles(): void {
     for (const tempFile of this.temporaryFiles) {
       if (existsSync(tempFile)) {
-        console.log(
-          `[${moment().format("LLLL")}] Deleting temp file: ${tempFile}`
-        );
+        console.log(`Deleting temp file: ${tempFile}`);
         unlinkSync(tempFile);
       }
     }

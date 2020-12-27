@@ -1,6 +1,6 @@
 #temp data folders
-/src/data/downloads
-/src/data/processed
+/data/downloads
+/data/processed
 
 # Cloud services config
 app.yaml
