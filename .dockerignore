@@ -1,0 +1,12 @@
+data/downloads
+data/processed
+node_modules
+npm-debug.log
+.env
+.vscode
+.gcloudignore
+.nyc_output
+app.yaml
+.git
+.gitignore
+nodemon.json

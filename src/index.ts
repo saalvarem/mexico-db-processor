@@ -21,7 +21,8 @@ const cronJob = scheduler.scheduleJob(
         return statusObj;
       })
       .catch((err) => {
-        return { error: JSON.stringify(err) };
+        console.error(err);
+        return { error: `Check console log for details` };
       });
   }
 );
