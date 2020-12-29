@@ -1,4 +1,3 @@
-import moment from "moment";
 import request from "request";
 import { URL } from "url";
 import { config as loadEnvVariables } from "dotenv";

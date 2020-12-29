@@ -1,6 +1,8 @@
 import nodemailer from "nodemailer";
-import { config as loadEnvVariables } from "dotenv";
+import phone from "phone";
 import twilio from "twilio";
+import { config as loadEnvVariables } from "dotenv";
+import { validate as validateEmail } from "deep-email-validator";
 loadEnvVariables();
 
 export default class Notifier {
@@ -39,31 +41,48 @@ export default class Notifier {
       this.smsClient = null;
     }
   }
-  notify(contacts: string[], msg: string, subject: string = "") {
-    contacts.forEach((contact) => {
-      if (contact?.includes("@") && this.emailClient) {
-        const mailOptions = {
-          from: this.fromEmail,
-          to: contact,
-          subject,
-          text: msg,
-        };
-        this.emailClient.sendMail(mailOptions, (err: Error, info: any) => {
-          if (err || !info?.accepted?.includes(contact)) {
-            console.error(`Error sending email`, err);
-          }
+
+  sendEmail(emails: string[], subject: string, msg: string) {
+    emails.forEach(async (emailAddress) => {
+      if (!this.emailClient) return;
+      const email = await validateEmail({
+        email: emailAddress,
+        sender: emailAddress,
+        validateRegex: true,
+        validateMx: true,
+        validateTypo: true,
+        validateDisposable: true,
+        validateSMTP: false,
+      });
+      if (!email?.valid) return;
+      const mailOptions = {
+        from: this.fromEmail,
+        to: emailAddress,
+        subject,
+        text: msg,
+      };
+      this.emailClient.sendMail(mailOptions, (err: Error, info: any) => {
+        if (err || !info?.accepted?.includes(email)) {
+          console.error(`Error sending email`, err);
+        }
+      });
+    });
+  }
+
+  sendSMS(phones: string[], msg: string) {
+    phones.forEach((number) => {
+      if (!this.smsClient) return;
+      const validatedPhone = phone(number);
+      if (validatedPhone.length < 1) return;
+      this.smsClient.messages
+        .create({
+          from: this.fromPhone,
+          to: validatedPhone[0],
+          body: msg,
+        })
+        .catch((err) => {
+          console.error(`Error sending SMS`, err);
         });
-      } else if (contact?.includes("+1") && this.smsClient) {
-        this.smsClient.messages
-          .create({
-            from: this.fromPhone,
-            to: contact,
-            body: msg,
-          })
-          .catch((err) => {
-            console.error(`Error sending SMS`, err);
-          });
-      }
     });
   }
 }

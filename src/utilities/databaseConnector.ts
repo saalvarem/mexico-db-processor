@@ -6,11 +6,13 @@ loadEnvVariables();
 
 // mongoose connection
 mongoose.Promise = global.Promise;
-mongoose.connect(process.env.MONGO_CONN_STRING || "", {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
-});
+mongoose
+  .connect(process.env.MONGO_CONN_STRING || "", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000,
+  })
+  .catch(() => {});
 
 const MexicoDbStats = mongoose.model("MexicoDbStat", StatsTracker);
 

@@ -1,14 +1,7 @@
 import csv from "csv-parser";
 import moment from "moment-timezone";
 import unzipper from "unzipper";
-import {
-  appendFile,
-  createReadStream,
-  createWriteStream,
-  existsSync,
-  unlinkSync,
-  writeFileSync,
-} from "fs";
+import fs from "fs";
 import {
   mapCaseDataByLocation,
   mapCaseDataCsvToJson,
@@ -50,7 +43,7 @@ export default class MexicoDbProcessor {
 
   async getCsvFileFromZip(zipFileLocation: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
-      if (existsSync(zipFileLocation)) {
+      if (fs.existsSync(zipFileLocation)) {
         const directory = await unzipper.Open.file(zipFileLocation);
         const expectedFiles = this.getPossibleDbFilename();
         let foundFile: string = "";
@@ -69,7 +62,7 @@ export default class MexicoDbProcessor {
               if (filename.toLowerCase() === expectedFiles[f].toLowerCase()) {
                 file
                   .stream()
-                  .pipe(createWriteStream(outputFile))
+                  .pipe(fs.createWriteStream(outputFile))
                   .on("error", () => innerResolve(""))
                   .on("finish", () => innerResolve(outputFile));
               } else {
@@ -116,7 +109,7 @@ export default class MexicoDbProcessor {
         if (!switchBuffer) {
           const data = primaryBuffer;
           switchBuffer = !switchBuffer;
-          appendFile(outputFile, data, (err) => {
+          fs.appendFile(outputFile, data, (err) => {
             if (err) {
               reject(err);
               return;
@@ -126,7 +119,7 @@ export default class MexicoDbProcessor {
         } else {
           const data = secondaryBuffer;
           switchBuffer = !switchBuffer;
-          appendFile(outputFile, data, (err) => {
+          fs.appendFile(outputFile, data, (err) => {
             if (err) {
               reject(err);
               return;
@@ -135,7 +128,7 @@ export default class MexicoDbProcessor {
           });
         }
         if (end) {
-          appendFile(outputFile, "\n]\n", (err) => {
+          fs.appendFile(outputFile, "\n]\n", (err) => {
             if (err) {
               reject(err);
               return;
@@ -145,8 +138,8 @@ export default class MexicoDbProcessor {
         }
       };
 
-      writeFileSync(outputFile, "[", "utf8");
-      createReadStream(csvFile)
+      fs.writeFileSync(outputFile, "[", "utf8");
+      fs.createReadStream(csvFile)
         .pipe(csv())
         .on("data", (row) => {
           const mappedRow = mapCaseDataCsvToJson(row, true);
@@ -218,7 +211,7 @@ export default class MexicoDbProcessor {
       );
       try {
         ensureDirExistsSync(this.processedDir);
-        writeFileSync(totalsByLocFile, JSON.stringify(data));
+        fs.writeFileSync(totalsByLocFile, JSON.stringify(data));
       } catch (err) {
         reject(err);
         return;
@@ -230,9 +223,9 @@ export default class MexicoDbProcessor {
 
   deleteTempFiles(): void {
     for (const tempFile of this.temporaryFiles) {
-      if (existsSync(tempFile)) {
+      if (fs.existsSync(tempFile)) {
         console.log(`Deleting temp file: ${tempFile}`);
-        unlinkSync(tempFile);
+        fs.unlinkSync(tempFile);
       }
     }
   }

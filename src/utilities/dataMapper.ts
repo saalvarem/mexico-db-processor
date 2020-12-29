@@ -12,6 +12,7 @@ const CATALOGS = {
   NACIONALIDAD: "nacionalidad",
   ORIGEN: "origen",
   RESULTADO: "resultado",
+  CLASIFICACION_FINAL: "resultado",
   SECTOR: "sector",
   SEXO: "sexo",
   SINO: "siNo",
@@ -125,6 +126,11 @@ export const mapCaseDataCsvToJson = (
           ? dic.resultado[key].descripcion
           : parseInt(key);
         break;
+      case "CLASIFICACION_FINAL":
+        mappedData[newKey] = translate
+          ? dic.resultado[key].descripcion
+          : parseInt(key);
+        break;
       case "PAIS_NACIONALIDAD":
       case "PAIS_ORIGEN":
         const text = caseData[prop];
@@ -200,7 +206,7 @@ export const mapCaseDataByLocation = (
               negative: [{ date: enterDate, cases: 0 }],
               dead: [{ date: enterDate, cases: 0 }],
             };
-        if (rVal[idx.RESULTADO] === "1") {
+        if (["1", "2", "3"].includes(rVal[idx.CLASIFICACION_FINAL])) {
           const indexOfCase = currEnt.positive.findIndex(
             (c) => c.date === enterDate
           );
@@ -209,7 +215,7 @@ export const mapCaseDataByLocation = (
           } else {
             currEnt.positive.push({ date: enterDate, cases: 1 });
           }
-        } else if (rVal[idx.RESULTADO] === "2") {
+        } else if (rVal[idx.CLASIFICACION_FINAL] === "7") {
           const indexOfCase = currEnt.negative.findIndex(
             (c) => c.date === enterDate
           );

@@ -1,12 +1,12 @@
 import MexicoDbProcessor from "../classes/mexicoDbProcessor";
-import { config as loadEnvVariables } from "dotenv";
-import { DataDownloader } from "../classes/dataDownloader";
+import Notifier from "../classes/notifier";
 import moment from "moment";
+import { CronJob } from "cron";
+import { DataDownloader } from "../classes/dataDownloader";
+import { config as loadEnvVariables } from "dotenv";
+import { copyFileSync, existsSync } from "fs";
 import { resolve as resolvePath, sep } from "path";
 import { srcDir } from "../utilities/utils";
-import { copyFileSync, existsSync } from "fs";
-import { CronJob } from "cron";
-import Notifier from "../classes/notifier";
 loadEnvVariables();
 
 let statusObj: { [step: string]: string } = {
@@ -56,15 +56,14 @@ export const processDbAndUpdateFiles = async (
     .catch((err: Error) => {
       console.error(`[${moment().format("LLLL")}] ERROR`, err);
       scheduledJob?.stop();
-      notifier.notify(
-        [process.env.ALERT_PHONE || ""],
-        `[${moment().format("LLLL")}] FAILED DB update`,
-        ""
-      );
-      notifier.notify(
+      notifier.sendEmail(
         [process.env.ALERT_EMAIL || ""],
-        JSON.stringify(err),
-        `[${moment().format("LLLL")}] DB Update error details`
+        `[${moment().format("LLLL")}] DB Update error details`,
+        JSON.stringify(err)
+      );
+      notifier.sendSMS(
+        [process.env.ALERT_PHONE || ""],
+        `[${moment().format("LLLL")}] FAILED DB update. Check logs.`
       );
     })
     .finally(() => {
@@ -73,9 +72,5 @@ export const processDbAndUpdateFiles = async (
       dbProcessor.deleteTempFiles();
       statusObj["5) Deleting temp files"] = "deleted";
     });
-  notifier.notify(
-    [process.env.ALERT_PHONE || ""],
-    `[${moment().format("LLLL")}]  DB data updated!`
-  );
   return statusObj;
 };
