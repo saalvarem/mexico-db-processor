@@ -1,7 +1,7 @@
 import csv from "csv-parser";
+import fs from "fs";
 import moment from "moment-timezone";
 import unzipper from "unzipper";
-import fs from "fs";
 import {
   mapCaseDataByLocation,
   mapCaseDataCsvToJson,

@@ -12,7 +12,7 @@ mongoose
     useUnifiedTopology: true,
     serverSelectionTimeoutMS: 5000,
   })
-  .catch(() => {});
+  .catch(console.error);
 
 const MexicoDbStats = mongoose.model("MexicoDbStat", StatsTracker);
 

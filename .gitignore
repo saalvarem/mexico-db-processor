@@ -3,6 +3,7 @@
 /dist
 /data/downloads
 /data/processed
+/public/mx-totals-by-location.json
 .gcloudignore
 app.yaml
 

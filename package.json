@@ -1,6 +1,6 @@
 {
   "name": "mexico-db-processor",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Un procesador para transformar la base de datos gubernamental de casos de COVID-19 en Mexico.",
   "main": "dist/index.js",
   "private": true,

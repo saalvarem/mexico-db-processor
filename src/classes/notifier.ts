@@ -69,10 +69,10 @@ export default class Notifier {
     });
   }
 
-  sendSMS(phones: string[], msg: string) {
-    phones.forEach((number) => {
+  sendSMS(mobileNumbers: string[], msg: string) {
+    mobileNumbers.forEach((mobileNumber) => {
       if (!this.smsClient) return;
-      const validatedPhone = phone(number);
+      const validatedPhone = phone(mobileNumber);
       if (validatedPhone.length < 1) return;
       this.smsClient.messages
         .create({
