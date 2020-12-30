@@ -7,7 +7,7 @@ import {
   mapCaseDataCsvToJson,
 } from "../utilities/dataMapper";
 import { config as loadEnvVariables } from "dotenv";
-import { ensureDirExistsSync, srcDir, timeDiffWith } from "../utilities/utils";
+import { ensureDirExistsSync, srcDir } from "../utilities/utils";
 import { getDbStats } from "../utilities/databaseConnector";
 import { resolve as resolvePath, sep } from "path";
 loadEnvVariables();
@@ -192,9 +192,7 @@ export default class MexicoDbProcessor {
 
   async groupTotalsByLocation(csvFile: string): Promise<string> {
     return new Promise(async (resolve, reject) => {
-      const startTime = moment();
       const entidades = await mapCaseDataByLocation(csvFile);
-      const elapsedTime = timeDiffWith(startTime);
       const totalsByLocFile = resolvePath(
         srcDir(),
         this.processedDir,

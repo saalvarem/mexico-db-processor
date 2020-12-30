@@ -1,6 +1,6 @@
 import { CronJob, CronCommand } from "cron";
 
-export class JobScheduler {
+export default class JobScheduler {
   private static singleton: JobScheduler | null = null;
   private jobs: any;
   constructor() {
@@ -12,7 +12,15 @@ export class JobScheduler {
     }
   }
 
-  scheduleJob(cronTime: string, description: string, funct: CronCommand) {
+  getTotalCronJobs(): number {
+    return Object.keys(this.jobs).length;
+  }
+
+  scheduleJob(
+    cronTime: string,
+    description: string,
+    funct: CronCommand
+  ): CronJob {
     const tz = "America/Los_Angeles";
     const newCronJob = new CronJob(cronTime, funct, null, false, tz);
     const jobArray = this.jobs[description] || [];

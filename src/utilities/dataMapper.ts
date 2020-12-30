@@ -1,9 +1,9 @@
-import { resolve as resolvePath } from "path";
-import { camelCase } from "change-case";
-import { srcDir } from "./utils";
-import { Entidad } from "../models/types";
-import { config as loadEnvVariables } from "dotenv";
 import LineByLine from "n-readlines";
+import { Entidad } from "../models/types";
+import { camelCase } from "change-case";
+import { config as loadEnvVariables } from "dotenv";
+import { resolve as resolvePath } from "path";
+import { srcDir } from "./utils";
 loadEnvVariables();
 
 const CATALOGS = {

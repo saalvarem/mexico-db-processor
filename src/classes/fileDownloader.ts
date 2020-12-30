@@ -2,7 +2,7 @@ import request from "request";
 import { URL } from "url";
 import { config as loadEnvVariables } from "dotenv";
 import { createWriteStream, existsSync, unlinkSync } from "fs";
-import { ensureDirExistsSync, srcDir } from "../utilities/utils";
+import { ensureDirExistsSync } from "../utilities/utils";
 import { resolve as resolvePath } from "path";
 const progress = require("request-progress");
 loadEnvVariables();
@@ -26,25 +26,13 @@ type progressState = {
   };
 };
 
-export class DataDownloader {
-  private static singleton: DataDownloader;
-  private downloadsDir: string =
-    process.env.DONWLOADS_DIR || "../data/downloads";
+export default class FileDownloader {
   private temporaryFiles: string[] = [];
-  private zipfileName: string =
-    process.env.DB_ZIP_FILENAME || "datos_abiertos_covid19.zip";
-  private zipfileUrl: string = process.env.MEXICO_DB_URL || "";
-  constructor() {
-    if (DataDownloader.singleton) {
-      return DataDownloader.singleton;
-    } else {
-      DataDownloader.singleton = this;
-    }
-  }
+  constructor(private downloadsDir: string = "./downloads") {}
 
-  async downloadDbZipFile(): Promise<string> {
+  async downloadFile(sourceUrl: string, outputFile: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const url = new URL(this.zipfileUrl).toString();
+      const url = new URL(sourceUrl).toString();
       try {
         ensureDirExistsSync(this.downloadsDir);
       } catch (err) {
@@ -52,11 +40,7 @@ export class DataDownloader {
           new Error(`Could not ensure directory exists: ${this.downloadsDir}`)
         );
       }
-      const fileDestination = resolvePath(
-        srcDir(),
-        this.downloadsDir,
-        this.zipfileName
-      );
+      const fileDestination = resolvePath(this.downloadsDir, outputFile);
       progress(request(url), {} as progressOptions)
         .on("progress", (state: progressState) => {
           console.log(

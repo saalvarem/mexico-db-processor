@@ -12,7 +12,8 @@
   "watch": [
     "./src/classes/**/*",
     "./src/utilities/**/*",
-    "./src/index.ts"
+    "./src/index.ts",
+    "./tests/*.test.ts"
   ],
   "ext": "js,json,ts",
   "exec": "ts-node ./src/index.ts"

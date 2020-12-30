@@ -1,18 +1,21 @@
+import FileDownloader from "../classes/fileDownloader";
 import MexicoDbProcessor from "../classes/mexicoDbProcessor";
 import Notifier from "../classes/notifier";
 import moment from "moment";
 import { CronJob } from "cron";
-import { DataDownloader } from "../classes/dataDownloader";
 import { config as loadEnvVariables } from "dotenv";
 import { copyFileSync, existsSync } from "fs";
 import { resolve as resolvePath, sep } from "path";
-import { srcDir } from "../utilities/utils";
+import { srcDir } from "./utils";
 loadEnvVariables();
 
-let statusObj: { [step: string]: string } = {
-  "1) New DB ZIP file": "downloading...",
-};
+const statusObj: { [step: string]: string } = {}; // instead of a context object because this is a simple project
+const sourceUrl = process.env.MEXICO_DB_URL || "";
+const downloadsDir = resolvePath(srcDir(), "../data/downloads");
+const outputFile = "datos_abiertos_covid19.zip";
 
+const fileDownloader = new FileDownloader(downloadsDir);
+const databaseProcessor = new MexicoDbProcessor();
 const notifier = new Notifier({
   service: process.env.FROM_EMAIL_SERVICE || "",
   email: process.env.FROM_EMAIL || "",
@@ -20,56 +23,54 @@ const notifier = new Notifier({
   phone: process.env.FROM_PHONE || "",
 });
 
+const timestamp = () => Date.now().toString();
+const datetime = () => moment().format("LLLL");
+
 export const processDbAndUpdateFiles = async (
   scheduledJob: CronJob
 ): Promise<{ [step: string]: string }> => {
-  const dataDownloader = new DataDownloader();
-  const dbProcessor = new MexicoDbProcessor();
-  statusObj = {
-    "1) New DB ZIP file": "downloading...",
-  };
-
-  await dataDownloader
-    .downloadDbZipFile()
+  statusObj[timestamp()] = "Downloading national DB ZIP";
+  await fileDownloader
+    .downloadFile(sourceUrl, outputFile)
     .then((downloadedZipFile: string) => {
-      statusObj["1) New DB ZIP file"] = "downloaded";
-      statusObj["2) Extract CSV from ZIP"] = "extracting...";
-      return dbProcessor.getCsvFileFromZip(downloadedZipFile);
+      statusObj[timestamp()] = "Download complete";
+      statusObj[timestamp()] = "Extracting CSV from ZIP";
+      return databaseProcessor.getCsvFileFromZip(downloadedZipFile);
     })
     .then(async (csvDbFile: string) => {
-      statusObj["2) Extract CSV from ZIP"] = "extracted";
-      statusObj["3) Grouping cases by location"] = "grouping...";
-      return dbProcessor.groupTotalsByLocation(csvDbFile);
+      statusObj[timestamp()] = "Extraction complete";
+      statusObj[timestamp()] = "Grouping cases by location";
+      return databaseProcessor.groupTotalsByLocation(csvDbFile);
     })
     .then((totalsByLocFile: string) => {
-      statusObj["3) Grouping cases by location"] = "grouped";
-      statusObj["4) Copying updated file to public"] = "copying...";
+      statusObj[timestamp()] = "Grouping complete";
+      statusObj[timestamp()] = "Copying updated file to public folder";
       const publicDir = resolvePath(srcDir(), "..", "public");
       const filename =
         totalsByLocFile.split(sep).pop() || "totals-by-location.json";
       const publicFile = resolvePath(publicDir, filename);
       if (existsSync(totalsByLocFile)) {
         copyFileSync(totalsByLocFile, publicFile);
-        statusObj["4) Copying updated file to public"] = "copied";
+        statusObj[timestamp()] = "File copied";
       }
     })
     .catch((err: Error) => {
-      console.error(`[${moment().format("LLLL")}] ERROR`, err);
+      console.error(`${datetime()}: ERROR`, err);
       scheduledJob?.stop();
       notifier.sendEmail(
         [process.env.ALERT_EMAIL || ""],
-        `[${moment().format("LLLL")}] DB Update error details`,
+        `${datetime()}: DB Update error details`,
         JSON.stringify(err)
       );
       notifier.sendSMS(
         [process.env.ALERT_PHONE || ""],
-        `[${moment().format("LLLL")}] FAILED DB update. Check logs.`
+        `${datetime()}: FAILED DB update. Check logs.`
       );
     })
     .finally(() => {
       statusObj["5) Deleting temp files"] = "deleting...";
-      dataDownloader.deleteTempFiles();
-      dbProcessor.deleteTempFiles();
+      fileDownloader.deleteTempFiles();
+      databaseProcessor.deleteTempFiles();
       statusObj["5) Deleting temp files"] = "deleted";
     });
   return statusObj;

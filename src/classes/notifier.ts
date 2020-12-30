@@ -34,8 +34,8 @@ export default class Notifier {
       }
       this.fromPhone = opts.phone;
       this.smsClient = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
+        process.env.TWILIO_ACCOUNT_SID || "",
+        process.env.TWILIO_AUTH_TOKEN || ""
       );
     } catch (err) {
       this.smsClient = null;

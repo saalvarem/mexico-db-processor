@@ -1,8 +1,8 @@
+import JobScheduler from "./classes/jobScheduler";
 import express from "express";
 import moment from "moment";
-import { JobScheduler } from "./classes/jobScheduler";
 import { config as loadEnvVariables } from "dotenv";
-import { processDbAndUpdateFiles } from "./utilities/dbUpdater";
+import { processDbAndUpdateFiles } from "./utilities/databaseUpdater";
 loadEnvVariables();
 
 const scheduler = new JobScheduler();
@@ -26,9 +26,6 @@ const cronJob = scheduler.scheduleJob(
       });
   }
 );
-
-cronJob.start();
-cronJob.fireOnTick();
 const app = express();
 app.use(express.static("public"));
 app.get("/", (req, res) => {
@@ -36,4 +33,6 @@ app.get("/", (req, res) => {
 });
 app.listen(process.env.PORT || 8080, () => {
   console.log(`Serving public files. Checking for updates: ${cronTime}`);
+  cronJob.start();
+  cronJob.fireOnTick();
 });

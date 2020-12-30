@@ -1,6 +1,6 @@
-import { mkdirSync } from "fs";
-import { dirname, resolve as resolvePath, isAbsolute, sep } from "path";
 import moment, { Moment } from "moment";
+import { dirname, resolve as resolvePath, isAbsolute, sep } from "path";
+import { mkdirSync } from "fs";
 
 export const srcDir = (): string => {
   return require?.main?.filename ? dirname(require.main.filename) : __dirname;
