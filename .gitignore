@@ -6,6 +6,7 @@
 /public/mx-totals-by-location.json
 .gcloudignore
 app.yaml
+dev_notes.txt
 
 # Logs
 logs

@@ -10,3 +10,4 @@ app.yaml
 .git
 .gitignore
 nodemon.json
+dev_notes.txt
