@@ -68,10 +68,10 @@ export const processDbAndUpdateFiles = async (
       );
     })
     .finally(() => {
-      statusObj["5) Deleting temp files"] = "deleting...";
+      statusObj[timestamp()] = "Deleting temporary files";
       fileDownloader.deleteTempFiles();
       databaseProcessor.deleteTempFiles();
-      statusObj["5) Deleting temp files"] = "deleted";
+      statusObj[timestamp()] = "Files deleted";
     });
   return statusObj;
 };
