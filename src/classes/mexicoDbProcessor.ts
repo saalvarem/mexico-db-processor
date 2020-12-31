@@ -10,6 +10,7 @@ import { config as loadEnvVariables } from "dotenv";
 import { ensureDirExistsSync, srcDir } from "../utilities/utils";
 import { getDbStats } from "../utilities/databaseConnector";
 import { resolve as resolvePath, sep } from "path";
+
 loadEnvVariables();
 
 export default class MexicoDbProcessor {
@@ -29,11 +30,13 @@ export default class MexicoDbProcessor {
   }
 
   private getPossibleDbFilename(suffix?: string): string[] {
+    const twoDaysPrior = moment(new Date()).add(-2, "d");
     const yesterday = moment(new Date()).add(-1, "d");
     const today = moment(new Date());
     const tomorrow = moment(new Date()).add(1, "d");
     const csvFileName = `COVID19MEXICO${suffix ? "_" + suffix : ""}.csv`;
     const possibleDbFileNames = [
+      `${twoDaysPrior.format(`YYMMDD`)}${csvFileName}`,
       `${yesterday.format(`YYMMDD`)}${csvFileName}`,
       `${today.format(`YYMMDD`)}${csvFileName}`,
       `${tomorrow.format(`YYMMDD`)}${csvFileName}`,
@@ -76,8 +79,13 @@ export default class MexicoDbProcessor {
           this.temporaryFiles.push(foundFile);
           resolve(foundFile);
         } else {
+          const filesInZip = directory.files.map((f) => f.path);
           reject(
-            new Error(`"${expectedFiles.join('" or "')}" not in ZIP file.`)
+            new Error(
+              `"${expectedFiles.join(
+                '" or "'
+              )}" not in ZIP file. Files in ZIP: ${JSON.stringify(filesInZip)}`
+            )
           );
         }
       } else {
