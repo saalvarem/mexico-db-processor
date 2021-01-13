@@ -56,12 +56,6 @@ export const processDbAndUpdateFiles = async (
     })
     .catch((err: Error) => {
       console.error(`${datetime()}: ERROR`, err);
-      scheduledJob?.stop();
-      notifier.sendEmail(
-        [process.env.ALERT_EMAIL || ""],
-        `${datetime()}: DB Update error details`,
-        JSON.stringify(err)
-      );
       notifier.sendSMS(
         [process.env.ALERT_PHONE || ""],
         `${datetime()}: FAILED DB update. Check logs.`
