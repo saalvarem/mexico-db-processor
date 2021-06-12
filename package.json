@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/saalvarem/mexico-db-processor#readme",
   "dependencies": {
+    "axios": "^0.21.1",
     "change-case": "^4.1.1",
     "cron": "^1.8.2",
     "csv-parser": "^2.3.3",
@@ -41,7 +42,7 @@
     "phone": "^2.4.17",
     "request": "^2.88.2",
     "request-progress": "^3.0.0",
-    "twilio": "^3.54.1",
+    "twilio": "^3.63.1",
     "unzipper": "^0.10.11"
   },
   "devDependencies": {
